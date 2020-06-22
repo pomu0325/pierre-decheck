@@ -111,19 +111,16 @@ def get_sha(data):
         try:
             pr_url = data.get("issue").get("pull_request").get("url")
         except AttributeError:
-            pr_url = data.get("issue").get("url")
+            return None
 
-    commits_url = "{}/commits".format(pr_url)
-    response = requests.request('GET', commits_url, headers=HEADERS)
+    response = requests.request('GET', pr_url, headers=HEADERS)
 
     if response.status_code == HTTP_200_OK:
-        logger.info("SHA list: " + response.text)
-        commits = json.loads(response.text)
-        sorted_commits = sorted(commits, key=lambda x: datetime.datetime.strptime(
-            x['commit']['author']['date'], '%Y-%m-%dT%H:%M:%SZ'), reverse=True)
-        return sorted_commits[0].get("sha", None)
+        logger.info("Pull Request detail: " + response.text)
+        pr = json.loads(response.text)
+        return pr.get("head", {}).get("sha", None)
     else:
-        logger.info("Failed to retrieve SHA information ({}) for {}".format(response.status_code, commits_url))
+        logger.info("Failed to retrieve SHA information ({}) for {}".format(response.status_code, pr_url))
     return None
 
 

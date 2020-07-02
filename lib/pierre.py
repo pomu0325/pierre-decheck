@@ -27,6 +27,9 @@ def check(payload, headers, host):
     if not verification:
         return reply
 
+    return run_check(payload, host)
+
+def run_check(payload, host):
     if not has_pull_request(payload):
         return {"statusCode": 201, "body": "Request body does not contain pull_request. Skipped check."}
 

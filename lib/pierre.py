@@ -299,7 +299,7 @@ def is_external_dependency(dependency):
 
 
 def update_dependants(payload, headers, host):
-    merged = headers.get('X-GitHub-Event') == 'pull_request' and payload.get('merged', False)
+    merged = headers.get('X-GitHub-Event') == 'pull_request' and payload.get('pull_request').get('merged', False)
     closed_or_reopened = headers.get('X-GitHub-Event') == 'issues' and payload.get('action') in ['closed', 'reopened']
     logger.info("update_dependants: merged: {}, closed: {}".format(merged, closed_or_reopened))
     if not (merged or closed_or_reopened):

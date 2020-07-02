@@ -300,13 +300,16 @@ def is_external_dependency(dependency):
 
 def update_dependants(payload, headers, host):
     merged = headers.get('X-GitHub-Event') == 'pull_request' and payload.get('merged', False)
-    if not merged:
+    closed = headers.get('X-GitHub-Event') == 'issues' and payload.get('action') == 'closed'
+    logger.info("update_dependants: merged: {}, closed: {}".format(merged, closed))
+    if not (merged or closed):
         return
 
+    pr_or_issue = 'pull_request' if merged else 'issue'
     timeline_url = "{}repos/{}/issues/{}/timeline?per_page=100".format(
         BASE_GITHUB_URL,
         payload.get('repository').get('full_name'),
-        payload.get('pull_request').get('number')
+        payload.get(pr_or_issue).get('number')
     )
 
     response = requests.request('GET', timeline_url, headers=dict({'Accept': 'application/vnd.github.mockingbird-preview'}, **HEADERS))

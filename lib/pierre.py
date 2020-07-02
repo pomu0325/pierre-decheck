@@ -314,11 +314,14 @@ def update_dependants(payload, headers, host):
 
     response = requests.request('GET', timeline_url, headers=dict({'Accept': 'application/vnd.github.mockingbird-preview'}, **HEADERS))
     if response.status_code != HTTP_200_OK:
-        logger.info("Failed to retrieve PR timeline for {}".format(timeline_url))
+        logger.info("Failed to retrieve PR timeline for {} : {}".format(timeline_url, response.text))
         return
 
+    logger.info("Timeline response: {}".format(response.text))
     timeline = json.loads(response.text)
     x_ref_events = list(filter(lambda x: x.get('event') == 'cross-referenced', timeline))
     pr_events = list(filter(lambda x: 'pull_request' in x.get('source').get('issue', {}), x_ref_events))
+    logger.info("{} cross-referenced PR found.".format(len(pr_events)))
+
     for pr in pr_events:
         run_check(pr.get('source').get('issue'), host)

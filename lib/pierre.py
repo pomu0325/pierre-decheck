@@ -296,3 +296,26 @@ def update_commit_status(owner, repo, sha, dependencies, host, are_dependencies_
 
 def is_external_dependency(dependency):
     return "#" in dependency
+
+
+def update_dependants(payload, headers, host):
+    merged = headers.get('X-GitHub-Event') == 'pull_request' and payload.get('merged', False)
+    if not merged:
+        return
+
+    timeline_url = "{}repos/{}/issues/{}/timeline?per_page=100".format(
+        BASE_GITHUB_URL,
+        payload.get('repository').get('full_name'),
+        payload.get('pull_request').get('number')
+    )
+
+    response = requests.request('GET', timeline_url, headers=dict({'Accept': 'application/vnd.github.mockingbird-preview'}, **HEADERS))
+    if response.status_code != HTTP_200_OK:
+        logger.info("Failed to retrieve PR timeline for {}".format(timeline_url))
+        return
+
+    timeline = json.loads(response.text)
+    x_ref_events = list(filter(lambda x: x.get('event') == 'cross-referenced', timeline))
+    pr_events = list(filter(lambda x: 'pull_request' in x.get('source').get('issue', {}), x_ref_events))
+    for pr in pr_events:
+        run_check(pr.get('source').get('issue'), host)

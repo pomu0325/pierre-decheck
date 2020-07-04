@@ -314,12 +314,26 @@ def fetch_timeline(repo_full_name, issue_number):
         repo_full_name,
         issue_number
     )
+    return _fetch_timeline(timeline_url, [])
 
+
+def _fetch_timeline(url, accum):
     preview_headers = dict(HEADERS, Accept='application/vnd.github.mockingbird-preview')
-    response = requests.request('GET', timeline_url, headers=preview_headers)
+    response = requests.request('GET', url, headers=preview_headers)
     if response.status_code != HTTP_200_OK:
-        logger.info("Failed to retrieve PR timeline for {} : {}".format(timeline_url, response.text))
-        return []
+        logger.info("Failed to retrieve PR timeline for {} : {}".format(url, response.text))
+        return accum
 
     logger.info("Timeline response: {}".format(response.text))
-    return json.loads(response.text)
+    accum.extend(json.loads(response.text))
+
+    link = response.headers.get('Link')
+    if isinstance(link, str):
+        import re
+        regex = r'<([^>]+)>; rel="next"'
+        match = re.findall(regex, link)
+        if match:
+            next_url = match[0]
+            _fetch_timeline(next_url, accum)
+
+    return accum

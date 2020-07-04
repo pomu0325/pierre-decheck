@@ -35,8 +35,8 @@ def check(payload, headers, host):
 
 def run_check(payload, host):
     owner, repo = get_owner_and_repo(payload)
-    bodies = get_all_bodies(payload)
     this_pr_id = get_pull_request_id(payload)
+    bodies = get_all_bodies(payload, owner, repo, this_pr_id)
     dependencies = get_dependencies_from_bodies(bodies, this_pr_id)
     dependencies_and_states = []
     for dep in dependencies:
@@ -101,12 +101,16 @@ def verify_source_is_github(data, headers):
     return True, {}
 
 
-def get_all_bodies(data):
-    bodies_from_event = get_bodies(data)
-    bodies_from_comments = get_bodies_from_pr_comments(data)
+def get_all_bodies(data, owner, repo, issue_number):
     bodies = []
+    bodies_from_event = get_bodies(data)
     bodies.extend(bodies_from_event)
-    bodies.extend(bodies_from_comments)
+
+    timeline = fetch_timeline(f"{owner}/{repo}", issue_number)
+    for event in timeline:
+        bodies_from_event = get_bodies(event)
+        bodies.extend(bodies_from_event)
+
     logger.info(f"Bodies: {bodies}")
     return bodies
 
@@ -132,25 +136,6 @@ def get_sha(data):
     else:
         logger.info("Failed to retrieve SHA information ({}) for {}".format(response.status_code, commits_url))
     return None
-
-
-def get_bodies_from_pr_comments(event_data):
-    try:
-        pr_url = event_data.get("pull_request").get("url")
-    except AttributeError:
-        pr_url = event_data.get("issue").get("url")
-
-    comments_url = "{}/comments".format(pr_url)
-    comments_url = comments_url.replace("pulls/", "issues/")
-
-    response = requests.request('GET', comments_url, headers=HEADERS)
-    if response.status_code == HTTP_200_OK:
-        comments = json.loads(response.text)
-        return [comment.get("body") for comment in comments]
-    else:
-        logger.info("Failed to retrieve comments information ({}) for {}".format(response.status_code, comments_url))
-
-    return []
 
 
 def get_bodies(event_object):

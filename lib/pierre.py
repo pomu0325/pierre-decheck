@@ -310,20 +310,10 @@ def update_dependants(payload, headers, host):
         return
 
     pr_or_issue = 'pull_request' if merged else 'issue'
-    timeline_url = "{}repos/{}/issues/{}/timeline?per_page=100".format(
-        BASE_GITHUB_URL,
+    timeline = fetch_timeline(
         payload.get('repository').get('full_name'),
         payload.get(pr_or_issue).get('number')
     )
-
-    preview_headers = dict(HEADERS, Accept='application/vnd.github.mockingbird-preview')
-    response = requests.request('GET', timeline_url, headers=preview_headers)
-    if response.status_code != HTTP_200_OK:
-        logger.info("Failed to retrieve PR timeline for {} : {}".format(timeline_url, response.text))
-        return
-
-    logger.info("Timeline response: {}".format(response.text))
-    timeline = json.loads(response.text)
     x_ref_events = list(filter(lambda x: x['event'] == 'cross-referenced', timeline))
     pr_events = list(filter(lambda x: 'pull_request' in x['source']['issue'], x_ref_events))
     open_pr_events = list(filter(lambda x: x['source']['issue']['state'] != 'closed', pr_events))
@@ -331,3 +321,20 @@ def update_dependants(payload, headers, host):
 
     for pr in open_pr_events:
         run_check(pr.get('source').get('issue'), host)
+
+
+def fetch_timeline(repo_full_name, issue_number):
+    timeline_url = "{}repos/{}/issues/{}/timeline?per_page=100".format(
+        BASE_GITHUB_URL,
+        repo_full_name,
+        issue_number
+    )
+
+    preview_headers = dict(HEADERS, Accept='application/vnd.github.mockingbird-preview')
+    response = requests.request('GET', timeline_url, headers=preview_headers)
+    if response.status_code != HTTP_200_OK:
+        logger.info("Failed to retrieve PR timeline for {} : {}".format(timeline_url, response.text))
+        return []
+
+    logger.info("Timeline response: {}".format(response.text))
+    return json.loads(response.text)

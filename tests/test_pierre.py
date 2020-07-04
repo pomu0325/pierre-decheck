@@ -1,6 +1,7 @@
 import json
 import os
-from unittest.mock import patch, Mock
+from unittest.mock import patch, Mock, ANY
+from copy import copy
 
 from flask_api.status import HTTP_200_OK
 
@@ -16,6 +17,7 @@ from lib.pierre import (
     HEADERS,
     get_dependency_state,
     update_dependants,
+    fetch_timeline,
 )
 from tests.pierre import PierreTestCase
 
@@ -336,3 +338,25 @@ class TestPierre(PierreTestCase):
         requests_mock.assert_any_call('GET', expected_url, headers=headers)
 
         run_check_mock.assert_not_called()
+
+    @patch('lib.pierre.requests.request')
+    def test_fetch_timeline(self, requests_mock):
+        request_response = Mock()
+        request_response.status_code = HTTP_200_OK
+        timeline = json.loads(open('tests/payloads/response/issues/timeline.json').read())
+        request_response.text = json.dumps(timeline)
+
+        request_response2 = copy(request_response)
+        next_url = 'https://api.github.com/repositories/117260108/issues/42/timeline?per_page=100&page=2'
+        request_response.headers = {'Link': f'<{next_url}>; rel="next"'}
+
+        requests_mock.side_effect = [
+            request_response,
+            request_response2
+        ]
+
+        result = fetch_timeline("owner/repo", 42)
+
+        requests_mock.assert_called_with('GET', next_url, headers=ANY)
+        self.assertEquals(2, requests_mock.call_count)
+        self.assertEquals(len(timeline) * 2, len(result))
